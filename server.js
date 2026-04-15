@@ -8,7 +8,8 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const PORT = process.env.PORT || 3000;
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent`;
 const SKILLS_DIR = path.join(__dirname, 'skills');
 
 if (!fs.existsSync(SKILLS_DIR)) fs.mkdirSync(SKILLS_DIR, { recursive: true });
@@ -77,10 +78,18 @@ app.delete('/api/skills/:filename', (req, res) => {
   res.json({ success: true });
 });
 
-// ─── Chat com agente (com skills injetadas no system prompt) ─────────────────
+// ─── Converte histórico para o formato Gemini ─────────────────────────────────
+function toGeminiHistory(messages) {
+  return messages.map(m => ({
+    role: m.role === 'assistant' ? 'model' : 'user',
+    parts: [{ text: m.content }],
+  }));
+}
+
+// ─── Chat com agente (Google Gemini — grátis) ─────────────────────────────────
 app.post('/api/chat', async (req, res) => {
-  if (!ANTHROPIC_API_KEY) {
-    return res.status(500).json({ error: 'ANTHROPIC_API_KEY não configurada no servidor' });
+  if (!GEMINI_API_KEY) {
+    return res.status(500).json({ error: 'GEMINI_API_KEY não configurada no servidor' });
   }
 
   const { messages, systemPrompt, skillFiles = [] } = req.body;
@@ -104,19 +113,26 @@ app.post('/api/chat', async (req, res) => {
     }
   }
 
+  // Separa última mensagem do histórico
+  const history = messages.slice(0, -1);
+  const lastMessage = messages[messages.length - 1];
+
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch(`${GEMINI_URL}?key=${GEMINI_API_KEY}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2048,
-        system: fullSystem,
-        messages,
+        system_instruction: {
+          parts: [{ text: fullSystem }],
+        },
+        contents: [
+          ...toGeminiHistory(history),
+          { role: 'user', parts: [{ text: lastMessage.content }] },
+        ],
+        generationConfig: {
+          maxOutputTokens: 2048,
+          temperature: 0.8,
+        },
       }),
     });
 
@@ -126,10 +142,11 @@ app.post('/api/chat', async (req, res) => {
       return res.status(400).json({ error: data.error.message });
     }
 
-    res.json({
-      reply: data.content[0].text,
-      usage: data.usage,
-    });
+    const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!reply) return res.status(500).json({ error: 'Resposta vazia da API Gemini' });
+
+    res.json({ reply, usage: data.usageMetadata });
+
   } catch (err) {
     res.status(500).json({ error: 'Falha ao contactar a API: ' + err.message });
   }
@@ -139,13 +156,15 @@ app.post('/api/chat', async (req, res) => {
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'alive',
-    apiKey: ANTHROPIC_API_KEY ? 'configurada' : 'AUSENTE',
+    model: 'gemini-2.0-flash',
+    apiKey: GEMINI_API_KEY ? 'configurada' : 'AUSENTE',
     skills: fs.readdirSync(SKILLS_DIR).filter(f => f.endsWith('.md')).length,
   });
 });
 
 app.listen(PORT, () => {
   console.log(`\n⚔️  Grimoire Studio rodando em http://localhost:${PORT}`);
+  console.log(`🤖 Modelo: gemini-2.0-flash (Google AI — grátis)`);
   console.log(`📜 Skills em: ${SKILLS_DIR}`);
-  console.log(`🔑 API Key: ${ANTHROPIC_API_KEY ? 'OK' : 'AUSENTE — defina ANTHROPIC_API_KEY'}\n`);
+  console.log(`🔑 API Key: ${GEMINI_API_KEY ? 'OK' : 'AUSENTE — defina GEMINI_API_KEY'}\n`);
 });
