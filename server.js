@@ -29,7 +29,7 @@ const upload = multer({
 
 app.use(cors());
 app.use(express.json({ limit: '2mb' }));
-app.use(express.static(path.join(__dirname, '..', 'frontend', 'public')));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── Listar skills disponíveis ───────────────────────────────────────────────
 app.get('/api/skills', (req, res) => {

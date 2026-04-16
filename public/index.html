@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Grimoire Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Press+Start+2P&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="css/style.css"/>
+</head>
+<body>
+
+<div class="grimoire" id="app">
+  <div class="corner corner-tl">+</div>
+  <div class="corner corner-tr">+</div>
+  <div class="corner corner-bl">+</div>
+  <div class="corner corner-br">+</div>
+
+  <!-- TITLEBAR -->
+  <div class="titlebar">
+    <div>
+      <div class="title-rune">&#9670; GRIMOIRE STUDIO &#9670;</div>
+      <div class="title-sub">ORDEM DOS CRIADORES — IA ATIVA</div>
+    </div>
+    <div class="win-btns">
+      <div class="wbtn">_</div><div class="wbtn">&#9633;</div><div class="wbtn">X</div>
+    </div>
+  </div>
+
+  <!-- LAYOUT -->
+  <div class="layout">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="sidebar-crown">&#10022; ORDEM &#10022;</div>
+      <div id="agent-list"></div>
+      <div class="diviner-box">
+        <div class="div-title">&#9670; MAESTRO &#9670;</div>
+        <div class="div-role">Arquimago — IA real ativa</div>
+        <div class="div-gem"></div>
+      </div>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main">
+      <div class="scrolls">
+        <div class="scroll-tab lit" data-tab="chat">&#9654; CONJURAR</div>
+        <div class="scroll-tab" data-tab="skills">&#9670; SKILLS</div>
+        <div class="scroll-tab" data-tab="agents">&#9632; AGENTES</div>
+      </div>
+
+      <!-- TAB: CHAT -->
+      <div class="content tab-panel active" id="tab-chat">
+        <div id="active-skills-bar"></div>
+        <div id="err-banner" class="err-banner" style="display:none"></div>
+        <div class="chat-wrap" id="chat-msgs"></div>
+        <div class="scroll-input">
+          <input class="rune-in" id="chat-in" placeholder="Escreva sua conjuração..."/>
+          <button class="cast-btn" id="send-btn">INVOCAR &#9654;</button>
+        </div>
+      </div>
+
+      <!-- TAB: SKILLS -->
+      <div class="content tab-panel" id="tab-skills" style="display:none">
+        <div class="skills-header">
+          <span class="panel-title">GRIMÓRIO DE SKILLS</span>
+          <div class="skills-actions">
+            <button class="action-btn" id="btn-upload-skill">&#9650; UPLOAD .MD</button>
+            <button class="action-btn" id="btn-paste-skill">&#9670; COLAR TEXTO</button>
+          </div>
+        </div>
+        <input type="file" id="file-input" accept=".md" style="display:none"/>
+
+        <!-- Paste modal -->
+        <div id="paste-modal" style="display:none">
+          <div class="modal-box">
+            <div class="modal-title">NOVA SKILL</div>
+            <input class="rune-in" id="skill-name-in" placeholder="nome-da-skill (sem .md)"/>
+            <textarea class="rune-textarea" id="skill-content-in" placeholder="Cole o conteúdo .md aqui..."></textarea>
+            <div class="modal-btns">
+              <button class="action-btn" id="btn-save-skill">FORJAR &#9670;</button>
+              <button class="action-btn danger" id="btn-cancel-skill">CANCELAR</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="skills-list" class="skills-list"></div>
+      </div>
+
+      <!-- TAB: AGENTS -->
+      <div class="content tab-panel" id="tab-agents" style="display:none">
+        <div class="panel-title" style="margin-bottom:10px">A ORDEM DOS CRIADORES</div>
+        <div id="agents-about"></div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="rpanel">
+      <div class="rp-section">
+        <div class="rp-title">&#9670; ESTADO DA ORDEM</div>
+        <div class="srow"><span class="slbl">SERVIDOR</span><span class="sval" id="server-status">...</span></div>
+        <div class="srow"><span class="slbl">API KEY</span><span class="sval" id="api-status">...</span></div>
+        <div class="srow"><span class="slbl">AGENTE</span><span class="sval" id="cur-agent-lbl">—</span></div>
+        <div class="srow"><span class="slbl">SKILLS ON</span><span class="sval" id="active-skills-count">0</span></div>
+        <div class="srow"><span class="slbl">MSGS</span><span class="sval" id="msg-count">0</span></div>
+      </div>
+      <div class="rp-section">
+        <div class="rp-title">&#9670; TOMO DE LOG</div>
+        <div id="log-panel"></div>
+      </div>
+      <div class="rp-section">
+        <div class="rp-title">&#9670; PRESSÁGIOS</div>
+        <div id="omens-panel">
+          <div class="omen"><div class="omen-txt">Selecione um agente e conjure</div><div class="omen-time">AGORA</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STATUS BAR -->
+  <div class="grimoire-bar">
+    <div class="gbar-item"><div class="gbar-rune"></div> ORDEM DESPERTA</div>
+    <div class="gbar-item"><div class="gbar-rune b"></div> MAESTRO ATIVO</div>
+    <div class="gbar-item pulse" id="status-bar">&#9670; AGUARDANDO</div>
+    <div class="gbar-item" style="margin-left:auto;color:var(--gold)">GRIMOIRE v2.0</div>
+  </div>
+</div>
+
+<script src="js/agents.js"></script>
+<script src="js/sprites.js"></script>
+<script src="js/skills.js"></script>
+<script src="js/chat.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
