@@ -1,13 +1,23 @@
-// skills.js — gerenciamento de skills/.md
+// skills.js — gerenciamento de skills + persistência via localStorage
+
+const LS_ACTIVE = 'grimoire_active_skills';
 
 window.SkillsManager = (() => {
   let allSkills = [];
-  let activeSkills = new Set(); // filenames ativos
+  let activeSkills = new Set(JSON.parse(localStorage.getItem(LS_ACTIVE) || '[]'));
+
+  function saveToStorage() {
+    localStorage.setItem(LS_ACTIVE, JSON.stringify([...activeSkills]));
+  }
 
   async function loadSkills() {
     try {
       const res = await fetch('/api/skills');
       allSkills = await res.json();
+      // remove do set skills que não existem mais no servidor
+      const validFiles = new Set(allSkills.map(s => s.filename));
+      [...activeSkills].forEach(f => { if (!validFiles.has(f)) activeSkills.delete(f); });
+      saveToStorage();
       renderSkillsList();
       renderActiveBar();
       updateCounter();
@@ -19,12 +29,10 @@ window.SkillsManager = (() => {
   function renderSkillsList() {
     const container = document.getElementById('skills-list');
     if (!container) return;
-
     if (allSkills.length === 0) {
       container.innerHTML = `<div class="empty-state">Nenhuma skill forjada ainda.<br>Faça upload de um .md ou cole o conteúdo.</div>`;
       return;
     }
-
     container.innerHTML = allSkills.map(skill => {
       const isActive = activeSkills.has(skill.filename);
       const kb = (skill.size / 1024).toFixed(1);
@@ -36,8 +44,7 @@ window.SkillsManager = (() => {
             <div class="skill-meta">${escHtml(skill.filename)} — ${kb}kb</div>
           </div>
           <div class="skill-btns">
-            <button class="skill-toggle ${isActive ? 'on' : ''}"
-              onclick="SkillsManager.toggle('${escHtml(skill.filename)}')">
+            <button class="skill-toggle ${isActive ? 'on' : ''}" onclick="SkillsManager.toggle('${escHtml(skill.filename)}')">
               ${isActive ? 'ON &#10003;' : 'OFF'}
             </button>
             <button class="skill-del" onclick="SkillsManager.del('${escHtml(skill.filename)}')">DEL</button>
@@ -50,7 +57,6 @@ window.SkillsManager = (() => {
     const bar = document.getElementById('active-skills-bar');
     if (!bar) return;
     if (activeSkills.size === 0) { bar.innerHTML = ''; return; }
-
     bar.innerHTML = [...activeSkills].map(f => {
       const skill = allSkills.find(s => s.filename === f);
       const name = skill ? skill.name : f;
@@ -74,6 +80,7 @@ window.SkillsManager = (() => {
       activeSkills.add(filename);
       addOmen(`Skill ativa: ${filename}`, 'good');
     }
+    saveToStorage();
     renderSkillsList();
     renderActiveBar();
     updateCounter();
@@ -85,6 +92,7 @@ window.SkillsManager = (() => {
     try {
       await fetch(`/api/skills/${encodeURIComponent(filename)}`, { method: 'DELETE' });
       activeSkills.delete(filename);
+      saveToStorage();
       await loadSkills();
       addLog('SKILLS', `${filename} deletada`);
     } catch (e) {
@@ -126,20 +134,14 @@ window.SkillsManager = (() => {
     }
   }
 
-  function getActive() {
-    return [...activeSkills];
-  }
+  function getActive() { return [...activeSkills]; }
 
   return { loadSkills, toggle, del, uploadFile, saveText, getActive };
 })();
 
-// helpers globais usados por outros módulos
+// ─── Helpers globais ──────────────────────────────────────────────────────────
 function escHtml(t) {
-  return String(t)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+  return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 function addLog(who, action) {

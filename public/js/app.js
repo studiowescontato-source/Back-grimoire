@@ -1,15 +1,16 @@
-// app.js — bootstrap principal, wiring de UI
+// app.js — bootstrap principal + persistência de tab e agente
+
+const LS_TAB = 'grimoire_active_tab';
 
 document.addEventListener('DOMContentLoaded', async () => {
 
-  // ─── Render sidebar de agentes ──────────────────────────────────────────────
+  // ─── Sidebar de agentes ──────────────────────────────────────────────────────
   const agentList = document.getElementById('agent-list');
-  Object.entries(window.AGENTS).forEach(([key, ag], i) => {
+  Object.entries(window.AGENTS).forEach(([key, ag]) => {
     const dotClass = ag.status === 'alive' ? 'dot-alive' : ag.status === 'busy' ? 'dot-cast' : 'dot-rest';
-    const chosen = i === 0 ? 'chosen' : '';
     agentList.innerHTML += `
-      <div class="agent-row ${chosen}" id="row-${key}" onclick="selectAgentUI('${key}')">
-        <canvas class="asp" id="sp-${key}" width="24" height="24"></canvas>
+      <div class="agent-row" id="row-${key}" onclick="selectAgentUI('${key}')">
+        <canvas class="asp" id="sp-${key}" width="36" height="36"></canvas>
         <div class="ainfo">
           <div class="aname">${ag.name}</div>
           <div class="arole">${ag.role}</div>
@@ -18,7 +19,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       </div>`;
   });
 
-  // ─── Render about agents ────────────────────────────────────────────────────
+  // ─── About agentes ───────────────────────────────────────────────────────────
   const aboutContainer = document.getElementById('agents-about');
   Object.entries(window.AGENTS).forEach(([key, ag]) => {
     const card = document.createElement('div');
@@ -31,40 +32,31 @@ document.addEventListener('DOMContentLoaded', async () => {
     aboutContainer.appendChild(card);
   });
 
-  // ─── Draw sprites ───────────────────────────────────────────────────────────
+  // ─── Sprites ─────────────────────────────────────────────────────────────────
   window.drawAllSprites();
 
-  // ─── Init chat ──────────────────────────────────────────────────────────────
+  // ─── Chat (restaura agente e histórico do localStorage) ──────────────────────
   window.Chat.init();
 
-  // ─── Tabs ───────────────────────────────────────────────────────────────────
+  // ─── Tabs: restaura última aba ativa ─────────────────────────────────────────
+  const savedTab = localStorage.getItem(LS_TAB) || 'chat';
+  activateTab(savedTab);
+
   document.querySelectorAll('.scroll-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       const name = tab.dataset.tab;
-      document.querySelectorAll('.scroll-tab').forEach(t => t.classList.remove('lit'));
-      tab.classList.add('lit');
-      document.querySelectorAll('.tab-panel').forEach(p => {
-        p.style.display = 'none';
-        p.classList.remove('active');
-      });
-      const target = document.getElementById('tab-' + name);
-      if (target) {
-        target.style.display = name === 'chat' ? 'flex' : 'block';
-        target.classList.add('active');
-      }
+      activateTab(name);
+      localStorage.setItem(LS_TAB, name);
     });
   });
 
-  // ─── Skills: upload ─────────────────────────────────────────────────────────
+  // ─── Skills: upload ──────────────────────────────────────────────────────────
   document.getElementById('btn-upload-skill').addEventListener('click', () => {
     document.getElementById('file-input').click();
   });
   document.getElementById('file-input').addEventListener('change', async e => {
     const file = e.target.files[0];
-    if (file) {
-      await window.SkillsManager.uploadFile(file);
-      e.target.value = '';
-    }
+    if (file) { await window.SkillsManager.uploadFile(file); e.target.value = ''; }
   });
 
   // ─── Skills: paste modal ─────────────────────────────────────────────────────
@@ -89,45 +81,48 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   });
 
-  // ─── Carregar skills do servidor ────────────────────────────────────────────
+  // ─── Carregar skills (restaura ativas do localStorage) ───────────────────────
   await window.SkillsManager.loadSkills();
 
-  // ─── Health check ───────────────────────────────────────────────────────────
+  // ─── Health check ────────────────────────────────────────────────────────────
   checkHealth();
   setInterval(checkHealth, 30000);
 });
 
-// ─── Global: selecionar agente ──────────────────────────────────────────────
-window.selectAgentUI = function(type) {
-  document.querySelectorAll('.agent-row').forEach(r => r.classList.remove('chosen'));
-  const row = document.getElementById('row-' + type);
-  if (row) row.classList.add('chosen');
-  window.Chat.selectAgent(type);
-
-  // volta para aba chat
+// ─── Ativar aba ───────────────────────────────────────────────────────────────
+function activateTab(name) {
   document.querySelectorAll('.scroll-tab').forEach(t => {
-    t.classList.toggle('lit', t.dataset.tab === 'chat');
+    t.classList.toggle('lit', t.dataset.tab === name);
   });
   document.querySelectorAll('.tab-panel').forEach(p => {
     p.style.display = 'none';
     p.classList.remove('active');
   });
-  const chatTab = document.getElementById('tab-chat');
-  chatTab.style.display = 'flex';
-  chatTab.classList.add('active');
+  const target = document.getElementById('tab-' + name);
+  if (target) {
+    target.style.display = name === 'chat' ? 'flex' : 'block';
+    target.classList.add('active');
+  }
+}
+
+// ─── Selecionar agente ────────────────────────────────────────────────────────
+window.selectAgentUI = function(type) {
+  document.querySelectorAll('.agent-row').forEach(r => r.classList.remove('chosen'));
+  const row = document.getElementById('row-' + type);
+  if (row) row.classList.add('chosen');
+  window.Chat.selectAgent(type);
+  activateTab('chat');
+  localStorage.setItem(LS_TAB, 'chat');
 };
 
-// ─── Health check ───────────────────────────────────────────────────────────
+// ─── Health check ─────────────────────────────────────────────────────────────
 async function checkHealth() {
   const serverEl = document.getElementById('server-status');
   const apiEl = document.getElementById('api-status');
   try {
     const res = await fetch('/api/health');
     const data = await res.json();
-    if (serverEl) {
-      serverEl.textContent = 'ONLINE';
-      serverEl.className = 'sval alive';
-    }
+    if (serverEl) { serverEl.textContent = 'ONLINE'; serverEl.className = 'sval alive'; }
     if (apiEl) {
       const ok = data.apiKey === 'configurada';
       apiEl.textContent = ok ? 'OK' : 'AUSENTE';
